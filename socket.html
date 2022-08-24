@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Socket.io simple chat</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="inbox">
+        <div class="inbox__people">
+          <h4>Active users</h4>
+        </div>
+        <div class="inbox__messages">
+          <div class="messages__history"></div>
+          <div class="fallback"></div>
+        </div>
+      </div>
+
+      <form class="message_form">
+        <input type="text" class="message_form__input" placeholder="Type a message" />
+        <button class="message_form__button" type="submit">Enter</button>
+      </form>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+    <script>
+      const socket = io('http://localhost:3004/chat', {
+        query: {
+          token:
+            'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjcmVhdGVkQXQiOiIyMDIyLTAxLTE5VDExOjQ4OjUzLjIyNloiLCJpZCI6IjJiYjM2ZDU4LWJjZTQtNDc5Ni05NDJkLTM4OGZmYWVjYTgxNCIsInVwZGF0ZWRBdCI6IjIwMjItMDEtMTlUMTE6NDk6NDMuODQ5WiIsImVtYWlsIjoicmZhaXphbjM4M0BnbWFpbC5jb20iLCJmaXJzdG5hbWUiOiJmYWl6YW4iLCJsYXN0bmFtZSI6InJhemEiLCJjb3VudHJ5IjoicGFraXN0YW4iLCJtb2JpbGVOdW1iZXIiOiIwMzI0MjEwMDY4NiIsImRhdGVPZkJpcnRoIjoiMjAyMi0wMS0xOSIsImltYWdlVXJsIjpudWxsLCJnZW5kZXIiOm51bGwsImlhdCI6MTY0MjU5Mjk5MSwiZXhwIjoxNjQzNTQzMzkxfQ.Gqlg6nbxonS5ZBmT_aE_H4sQisxng6rvvFpi2JC9jrU',
+        },
+      });
+
+      const inboxPeople = document.querySelector('.inbox__people');
+      const inputField = document.querySelector('.message_form__input');
+      const messageForm = document.querySelector('.message_form');
+      const messageBox = document.querySelector('.messages__history');
+      const fallback = document.querySelector('.fallback');
+
+      let userName = '';
+
+      const newUserConnected = (user) => {
+        userName = user || `User${Math.floor(Math.random() * 1000000)}`;
+        socket.emit('new user', userName);
+        addToUsersBox(userName);
+      };
+
+      const addToUsersBox = (userName) => {
+        if (!!document.querySelector(`.${userName}-userlist`)) {
+          return;
+        }
+
+        const userBox = `
+    <div class="chat_ib ${userName}-userlist">
+      <h5>${userName}</h5>
+    </div>
+  `;
+        inboxPeople.innerHTML += userBox;
+      };
+
+      const addNewMessage = ({ user, message }) => {
+        const time = new Date();
+        const formattedTime = time.toLocaleString('en-US', {
+          hour: 'numeric',
+          minute: 'numeric',
+        });
+
+        const receivedMsg = `
+  <div class="incoming__message">
+    <div class="received__message">
+      <p>${message}</p>
+      <div class="message__info">
+        <span class="message__author">${user}</span>
+        <span class="time_date">${formattedTime}</span>
+      </div>
+    </div>
+  </div>`;
+
+        const myMsg = `
+  <div class="outgoing__message">
+    <div class="sent__message">
+      <p>${message}</p>
+      <div class="message__info">
+        <span class="time_date">${formattedTime}</span>
+      </div>
+    </div>
+  </div>`;
+
+        messageBox.innerHTML += user === userName ? myMsg : receivedMsg;
+      };
+
+      // new user is created so we generate nickname and emit event
+      newUserConnected();
+
+      messageForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (!inputField.value) {
+          return;
+        }
+        console.log(inputField.value);
+        socket.emit('message', {
+          receiver: '2bb36d58-bce4-4796-942d-388ffaeca814',
+          sender: '2bb36d58-bce4-4796-942d-388ffaeca814',
+          message: 'Text',
+        });
+
+        inputField.value = '';
+      });
+
+      inputField.addEventListener('keyup', () => {
+        socket.emit('typing', {
+          isTyping: inputField.value.length > 0,
+          nick: userName,
+        });
+      });
+
+      socket.on('new user', function (data) {
+        data.map((user) => addToUsersBox(user));
+      });
+
+      socket.on('message/5fb610e73247eb001738503a', function (data) {
+        console.log('message/5fb610e73247eb001738503a');
+        console.log(data);
+      });
+      socket.on('establishment/5fb56f166e0d1a0017ccd3f8', function (data) {
+        console.log('asd');
+        console.log(data);
+      });
+      socket.on('admin/5fd4d55d303f13618c4cfec6', function (data) {
+        console.log('asd');
+        console.log(data);
+      });
+
+      socket.on('customer/6013f85655d54e0017b99081', function (data) {
+        console.log('asd');
+        console.log(data);
+      });
+      socket.on('message', function (data) {
+        console.log(data);
+        data.map((user) => addToUsersBox(user));
+      });
+      socket.on('user disconnected', function (userName) {
+        document.querySelector(`.${userName}-userlist`).remove();
+      });
+
+      socket.on('locations', function (data) {
+        addNewMessage({ user: data.nick, message: data.message });
+
+        console.log(data);
+      });
+
+      socket.on('typing', function (data) {
+        const { isTyping, nick } = data;
+
+        if (!isTyping) {
+          fallback.innerHTML = '';
+          return;
+        }
+
+        fallback.innerHTML = `<p>${nick} is typing...</p>`;
+      });
+    </script>
+  </body>
+</html>
